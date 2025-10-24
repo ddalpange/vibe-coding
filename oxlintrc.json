@@ -1,0 +1,11 @@
+{
+  "$schema": "https://cdn.jsdelivr.net/npm/oxlint@latest/configuration_schema.json",
+  "rules": {
+    "typescript": "error",
+    "unicorn": "warn"
+  },
+  "env": {
+    "node": true,
+    "es2022": true
+  }
+}

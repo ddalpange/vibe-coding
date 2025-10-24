@@ -1,0 +1,6 @@
+{
+  "hooks": {
+    "write": "pnpm oxlint --fix \"$FILE_PATH\" || true",
+    "edit": "pnpm oxlint --fix \"$FILE_PATH\" || true"
+  }
+}

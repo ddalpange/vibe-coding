@@ -1,9 +1,12 @@
-import { pgTable, serial, text, timestamp } from 'drizzle-orm/pg-core';
+import { sqliteTable, integer, text } from 'drizzle-orm/sqlite-core';
+import { sql } from 'drizzle-orm';
 
-// Example schema - customize as needed
-export const users = pgTable('users', {
-  id: serial('id').primaryKey(),
+// User schema with authentication fields
+export const users = sqliteTable('users', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
   name: text('name').notNull(),
   email: text('email').notNull().unique(),
-  createdAt: timestamp('created_at').defaultNow().notNull(),
+  password: text('password').notNull(), // Hashed password
+  createdAt: text('created_at').default(sql`CURRENT_TIMESTAMP`).notNull(),
+  updatedAt: text('updated_at').default(sql`CURRENT_TIMESTAMP`).notNull(),
 });

@@ -2,6 +2,8 @@ import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import { db } from './db/index';
 import { users } from './db/schema';
+import authRoutes from './routes/auth';
+import { authenticate } from './middleware/auth';
 
 const fastify = Fastify({
   logger: true,
@@ -12,17 +14,39 @@ await fastify.register(cors, {
   origin: true,
 });
 
+// Register auth routes
+await fastify.register(authRoutes, { prefix: '/api/auth' });
+
 // Health check route
 fastify.get('/health', async () => {
-  const unused = "test";  // This should trigger oxlint
   return { status: 'ok', timestamp: new Date().toISOString() };
 });
 
-// Example route using Drizzle
-fastify.get('/users', async () => {
-  const allUsers = await db.select().from(users);
+// Public route - get all users (without passwords)
+fastify.get('/api/users', async () => {
+  const allUsers = await db
+    .select({
+      id: users.id,
+      name: users.name,
+      email: users.email,
+      createdAt: users.createdAt,
+    })
+    .from(users);
   return allUsers;
 });
+
+// Protected route example - get current user profile
+fastify.get(
+  '/api/me',
+  { preHandler: authenticate },
+  async (request) => {
+    // request.user is available because of authenticate middleware
+    return {
+      message: 'This is a protected route',
+      user: request.user,
+    };
+  },
+);
 
 // Start server
 const start = async () => {
