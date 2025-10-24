@@ -13,12 +13,13 @@ await fastify.register(cors, {
 });
 
 // Health check route
-fastify.get('/health', async (request, reply) => {
+fastify.get('/health', async () => {
+  const unused = "test";  // This should trigger oxlint
   return { status: 'ok', timestamp: new Date().toISOString() };
 });
 
 // Example route using Drizzle
-fastify.get('/users', async (request, reply) => {
+fastify.get('/users', async () => {
   const allUsers = await db.select().from(users);
   return allUsers;
 });
