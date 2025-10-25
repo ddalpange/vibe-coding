@@ -1,14 +1,5 @@
 import type { FastifyPluginAsync } from 'fastify';
-import { eq } from 'drizzle-orm';
-import { db } from '../db/index';
-import { users } from '../db/schema';
-import {
-  hashPassword,
-  verifyPassword,
-  generateToken,
-  isValidEmail,
-  validatePasswordStrength,
-} from '../utils/auth';
+import Container from '../container';
 
 // Request body types
 interface RegisterRequest {
@@ -22,154 +13,57 @@ interface LoginRequest {
   password: string;
 }
 
-// Response types
-interface AuthResponse {
-  user: {
-    id: number;
-    name: string;
-    email: string;
-  };
-  token: string;
-}
-
 const authRoutes: FastifyPluginAsync = async (fastify) => {
+  const authService = Container.getAuthService();
+
   // User Registration
   fastify.post<{ Body: RegisterRequest }>('/register', async (request, reply) => {
-    const { name, email, password } = request.body;
-
-    // Validation
-    if (!name || !email || !password) {
-      return reply.code(400).send({
-        error: 'Name, email, and password are required',
-      });
-    }
-
-    if (!isValidEmail(email)) {
-      return reply.code(400).send({
-        error: 'Invalid email format',
-      });
-    }
-
-    const passwordValidation = validatePasswordStrength(password);
-    if (!passwordValidation.isValid) {
-      return reply.code(400).send({
-        error: passwordValidation.error,
-      });
-    }
-
     try {
-      // Check if user already exists
-      const existingUser = await db
-        .select()
-        .from(users)
-        .where(eq(users.email, email.toLowerCase()))
-        .limit(1);
+      const result = await authService.register(request.body);
+      return reply.code(201).send(result);
+    } catch (error) {
+      const err = error as Error;
+      fastify.log.error(error);
 
-      if (existingUser.length > 0) {
-        return reply.code(409).send({
-          error: 'User with this email already exists',
-        });
+      // Handle specific error cases
+      if (err.message.includes('required')) {
+        return reply.code(400).send({ error: err.message });
+      }
+      if (err.message.includes('Invalid email')) {
+        return reply.code(400).send({ error: err.message });
+      }
+      if (err.message.includes('Password must')) {
+        return reply.code(400).send({ error: err.message });
+      }
+      if (err.message.includes('already exists')) {
+        return reply.code(409).send({ error: err.message });
       }
 
-      // Hash password
-      const hashedPassword = await hashPassword(password);
-
-      // Create user
-      const [newUser] = await db
-        .insert(users)
-        .values({
-          name,
-          email: email.toLowerCase(),
-          password: hashedPassword,
-        })
-        .returning({
-          id: users.id,
-          name: users.name,
-          email: users.email,
-        });
-
-      // Generate JWT token
-      const token = generateToken({
-        userId: newUser.id,
-        email: newUser.email,
-      });
-
-      const response: AuthResponse = {
-        user: newUser,
-        token,
-      };
-
-      return reply.code(201).send(response);
-    } catch (error) {
-      fastify.log.error(error);
-      return reply.code(500).send({
-        error: 'Failed to create user',
-      });
+      return reply.code(500).send({ error: 'Failed to create user' });
     }
   });
 
   // User Login
   fastify.post<{ Body: LoginRequest }>('/login', async (request, reply) => {
-    const { email, password } = request.body;
-
-    // Validation
-    if (!email || !password) {
-      return reply.code(400).send({
-        error: 'Email and password are required',
-      });
-    }
-
-    if (!isValidEmail(email)) {
-      return reply.code(400).send({
-        error: 'Invalid email format',
-      });
-    }
-
     try {
-      // Find user by email
-      const [user] = await db
-        .select()
-        .from(users)
-        .where(eq(users.email, email.toLowerCase()))
-        .limit(1);
-
-      if (!user) {
-        // Don't reveal whether email exists or not (security best practice)
-        return reply.code(401).send({
-          error: 'Invalid email or password',
-        });
-      }
-
-      // Verify password
-      const isPasswordValid = await verifyPassword(password, user.password);
-
-      if (!isPasswordValid) {
-        return reply.code(401).send({
-          error: 'Invalid email or password',
-        });
-      }
-
-      // Generate JWT token
-      const token = generateToken({
-        userId: user.id,
-        email: user.email,
-      });
-
-      const response: AuthResponse = {
-        user: {
-          id: user.id,
-          name: user.name,
-          email: user.email,
-        },
-        token,
-      };
-
-      return reply.code(200).send(response);
+      const result = await authService.login(request.body);
+      return reply.code(200).send(result);
     } catch (error) {
+      const err = error as Error;
       fastify.log.error(error);
-      return reply.code(500).send({
-        error: 'Login failed',
-      });
+
+      // Handle specific error cases (order matters!)
+      if (err.message.includes('required')) {
+        return reply.code(400).send({ error: err.message });
+      }
+      if (err.message.includes('Invalid email or password')) {
+        return reply.code(401).send({ error: err.message });
+      }
+      if (err.message.includes('Invalid email')) {
+        return reply.code(400).send({ error: err.message });
+      }
+
+      return reply.code(500).send({ error: 'Login failed' });
     }
   });
 };

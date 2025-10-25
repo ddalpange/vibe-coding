@@ -1,7 +1,6 @@
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
-import { db } from './db/index';
-import { users } from './db/schema';
+import Container from './container';
 import authRoutes from './routes/auth';
 import { authenticate } from './middleware/auth';
 
@@ -24,14 +23,8 @@ fastify.get('/health', async () => {
 
 // Public route - get all users (without passwords)
 fastify.get('/api/users', async () => {
-  const allUsers = await db
-    .select({
-      id: users.id,
-      name: users.name,
-      email: users.email,
-      createdAt: users.createdAt,
-    })
-    .from(users);
+  const userRepository = Container.getUserRepository();
+  const allUsers = await userRepository.findAll();
   return allUsers;
 });
 
@@ -40,10 +33,23 @@ fastify.get(
   '/api/me',
   { preHandler: authenticate },
   async (request) => {
-    // request.user is available because of authenticate middleware
+    const authService = Container.getAuthService();
+    const user = await authService.getUserById(request.user!.userId);
+
+    if (!user) {
+      return {
+        error: 'User not found',
+      };
+    }
+
     return {
       message: 'This is a protected route',
-      user: request.user,
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        createdAt: user.createdAt,
+      },
     };
   },
 );

@@ -1,18 +1,19 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import Fastify, { FastifyInstance } from 'fastify';
 import cors from '@fastify/cors';
+import Container from '../container';
 import authRoutes from './auth';
-import { db } from '../db/index';
-import { users } from '../db/schema';
-import { eq } from 'drizzle-orm';
 
 describe('Auth API', () => {
   let app: FastifyInstance;
 
   beforeAll(async () => {
+    // Get repository from container
+    const userRepository = Container.getUserRepository();
+
     // Clean up test users before tests
-    await db.delete(users).where(eq(users.email, 'test@example.com'));
-    await db.delete(users).where(eq(users.email, 'duplicate@example.com'));
+    await userRepository.deleteByEmail('test@example.com');
+    await userRepository.deleteByEmail('duplicate@example.com');
 
     // Create test app instance
     app = Fastify({
@@ -27,8 +28,9 @@ describe('Auth API', () => {
 
   afterAll(async () => {
     // Clean up test users
-    await db.delete(users).where(eq(users.email, 'test@example.com'));
-    await db.delete(users).where(eq(users.email, 'duplicate@example.com'));
+    const userRepository = Container.getUserRepository();
+    await userRepository.deleteByEmail('test@example.com');
+    await userRepository.deleteByEmail('duplicate@example.com');
     await app.close();
   });
 
@@ -44,6 +46,9 @@ describe('Auth API', () => {
         },
       });
 
+      if (response.statusCode !== 201) {
+        console.log('Error response:', response.body);
+      }
       expect(response.statusCode).toBe(201);
       const body = JSON.parse(response.body);
       expect(body.user).toBeDefined();
