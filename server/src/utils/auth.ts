@@ -41,9 +41,9 @@ export async function verifyPassword(
  */
 export function generateToken(payload: JwtPayload): string {
   return jwt.sign(payload, JWT_SECRET, {
-    expiresIn: JWT_EXPIRES_IN,
+    expiresIn: JWT_EXPIRES_IN as string | number,
     issuer: 'vibe-coding-server',
-  });
+  } as jwt.SignOptions);
 }
 
 /**

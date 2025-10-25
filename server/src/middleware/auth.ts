@@ -85,6 +85,6 @@ export async function optionalAuthenticate(
     }
   } catch (error) {
     // Silently fail for optional authentication
-    request.log.debug('Optional authentication failed', error);
+    request.log.debug({ error }, 'Optional authentication failed');
   }
 }
